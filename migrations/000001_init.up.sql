@@ -1,0 +1,34 @@
+CREATE TABLE users (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  username VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE todo_lists (
+  id BIGSERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description VARCHAR(255)
+);
+
+CREATE TABLE users_lists (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  list_id BIGINT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  FOREIGN KEY (list_id) REFERENCES todo_lists (id) ON DELETE CASCADE
+);
+
+CREATE TABLE todo_items (
+  id BIGSERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description VARCHAR(255)
+);
+
+CREATE TABLE lists_items (
+  id BIGSERIAL PRIMARY KEY,
+  list_id BIGINT NOT NULL,
+  item_id BIGINT NOT NULL,
+  FOREIGN KEY (list_id) REFERENCES todo_lists (id) ON DELETE CASCADE,
+  FOREIGN KEY (item_id) REFERENCES todo_items (id) ON DELETE CASCADE
+);
