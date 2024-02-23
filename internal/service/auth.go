@@ -8,6 +8,7 @@ import (
 	"github.com/IvanMeln1k/go-todo-app/internal/domain"
 	"github.com/IvanMeln1k/go-todo-app/internal/repository"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/sirupsen/logrus"
 )
 
 const ( 
@@ -55,4 +56,18 @@ func (s *AuthService) GenerateToken(username, password string) (string, error) {
 	})
 
 	return token.SignedString([]byte(signingkey))
+}
+
+func (s *AuthService) ParseToken(tokenString string) (int, error) {
+	var claims StandardClaimsWithUserId
+	_, err := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(signingkey), nil
+	})
+
+	if err != nil {
+		logrus.Error(err)
+		return 0, err
+	}
+
+	return claims.UserId, nil
 }

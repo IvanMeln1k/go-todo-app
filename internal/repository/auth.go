@@ -46,6 +46,7 @@ func (r *AuthRepository) GetUser(username, password string) (domain.User, error)
 	err := r.db.Get(&user, query, username, password)
 
 	if err != nil {
+		logrus.Error(err)
 		if err == sql.ErrNoRows {
 			return user, errors.New("user not found")
 		}
