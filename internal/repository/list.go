@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/IvanMeln1k/go-todo-app/internal/domain"
 	"github.com/jmoiron/sqlx"
@@ -81,4 +82,59 @@ func (r *TodoListRepository) GetById(userId int, todoListId int) (domain.TodoLis
 	}
 
 	return todoList, nil
+}
+
+func (r *TodoListRepository) Delete(userId int, todoListId int) (error) {
+	query := fmt.Sprintf(`DELETE FROM %s tl USING %s ul WHERE ul.list_id = tl.id AND
+	ul.user_id = $1 AND tl.id = $2 RETURNING tl.id`, todoListsTable, usersListsTable)
+	row := r.db.QueryRow(query, userId, todoListId)
+
+	var id int
+	err := row.Scan(&id)
+	if err != nil {
+		logrus.Error(err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("not found")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (r *TodoListRepository) Update(userId int, todoListId int, updateTodoList domain.UpdateTodoList) (domain.TodoList, error) {
+	var valueNames = make([]string, 0)
+	var values = make([]interface{}, 0)
+	var argId = 1
+
+	addValue := func(name string, value interface{}) {
+		valueNames = append(valueNames, fmt.Sprintf("%s = $%d", name, argId))
+		values = append(values, value)
+		argId++
+	}
+
+	if updateTodoList.Title != nil {
+		addValue("title", *updateTodoList.Title)
+	}
+	if updateTodoList.Description != nil {
+		addValue("description", *updateTodoList.Description)
+	}
+
+	setQuery := strings.Join(valueNames, ", ")
+	query := fmt.Sprintf(`UPDATE %s tl SET %s FROM %s ul WHERE ul.list_id = tl.id AND ul.user_id = $%d
+	AND tl.id = $%d RETURNING tl.*`, todoListsTable, setQuery, usersListsTable, argId, argId + 1)
+	values = append(values, userId, todoListId)
+
+	var todoList domain.TodoList
+	row := r.db.QueryRow(query, values...)
+	err := row.Scan(&todoList.Id, &todoList.Title, &todoList.Description)
+	if err != nil {
+		logrus.Error(err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return todoList, errors.New("not found")
+		}
+		return todoList, err
+	}
+
+	return todoList, err
 }

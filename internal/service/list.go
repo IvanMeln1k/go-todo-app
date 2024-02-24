@@ -26,3 +26,11 @@ func (s *TodoListService) GetAll(userId int) ([]domain.TodoList, error) {
 func (s *TodoListService) GetById(userId int, todoListId int) (domain.TodoList, error) {
 	return s.repo.GetById(userId, todoListId)
 }
+
+func (s *TodoListService) Delete(userId int, todoListId int) error {
+	return s.repo.Delete(userId, todoListId)
+}
+
+func (s *TodoListService) Update(userId int, todoListId int, updateTodoList domain.UpdateTodoList) (domain.TodoList, error) {
+	return s.repo.Update(userId, todoListId, updateTodoList)
+}
