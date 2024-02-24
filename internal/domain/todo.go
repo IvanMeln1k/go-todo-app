@@ -1,9 +1,9 @@
 package domain
 
 type TodoList struct {
-	Id int `json:"id"`
-	Title string `json:"title"`
-	Description string `json:"description"`
+	Id int `json:"id" db:"id"`
+	Title string `json:"title" validate:"required" db:"title"`
+	Description string `json:"description" title:"description"`
 }
 
 type UsersList struct {

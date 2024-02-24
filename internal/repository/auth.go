@@ -16,7 +16,9 @@ type AuthRepository struct {
 }
 
 func NewAuthRepository(db *sqlx.DB) *AuthRepository {
-	return &AuthRepository{db: db}
+	return &AuthRepository{
+		db: db,
+	}
 }
 
 func (r *AuthRepository) CreateUser(user domain.User) (int, error) {

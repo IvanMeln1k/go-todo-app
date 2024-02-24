@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"time"
 
@@ -67,6 +68,10 @@ func (s *AuthService) ParseToken(tokenString string) (int, error) {
 	if err != nil {
 		logrus.Error(err)
 		return 0, err
+	}
+
+	if claims.UserId == 0 {
+		return 0, errors.New("invalid token expired")
 	}
 
 	return claims.UserId, nil
