@@ -3,13 +3,13 @@ package domain
 import "errors"
 
 type TodoList struct {
-	Id int `json:"id" db:"id"`
-	Title string `json:"title" validate:"required" db:"title"`
+	Id          int    `json:"id" db:"id"`
+	Title       string `json:"title" validate:"required" db:"title"`
 	Description string `json:"description" title:"description"`
 }
 
 type UpdateTodoList struct {
-	Title *string `json:"title"`
+	Title       *string `json:"title"`
 	Description *string `json:"description"`
 }
 
@@ -21,22 +21,22 @@ func (i UpdateTodoList) Validate() error {
 }
 
 type UsersList struct {
-	Id int
+	Id     int
 	UserId int
 	ListId int
 }
 
 type TodoItem struct {
-	Id int `json:"id" db:"id"`
-	Title string `json:"title" db:"title" validate:"required"`
- 	Description string `json:"description" db:"description"`
-	Done bool `done:"done" db:"done"`
+	Id          int    `json:"id" db:"id"`
+	Title       string `json:"title" db:"title" validate:"required"`
+	Description string `json:"description" db:"description"`
+	Done        bool   `done:"done" db:"done"`
 }
 
 type UpdateTodoItem struct {
-	Title *string `json:"title"`
+	Title       *string `json:"title"`
 	Description *string `json:"description"`
-	Done *bool `json:"done"`
+	Done        *bool   `json:"done"`
 }
 
 func (i UpdateTodoItem) Validate() error {
@@ -47,7 +47,7 @@ func (i UpdateTodoItem) Validate() error {
 }
 
 type ListsItem struct {
-	Id int
+	Id     int
 	ListId int
 	ItemId int
 }

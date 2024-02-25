@@ -35,7 +35,7 @@ func (r *AuthRepository) CreateUser(user domain.User) (int, error) {
 				return 0, errors.New("username already in use")
 			}
 		}
-		return 0, errors.New("internal server error");
+		return 0, errors.New("internal server error")
 	}
 
 	return id, nil
@@ -54,5 +54,5 @@ func (r *AuthRepository) GetUser(username, password string) (domain.User, error)
 		}
 		return user, err
 	}
-	return user, nil;
+	return user, nil
 }

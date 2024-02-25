@@ -81,10 +81,10 @@ func (r *TodoItemRepository) GetById(userId int, todoItemId int) (domain.TodoIte
 	return todoItem, nil
 }
 
-func (r *TodoItemRepository) Delete(userId int, todoItemId int) (error) {
+func (r *TodoItemRepository) Delete(userId int, todoItemId int) error {
 	query := fmt.Sprintf(`DELETE FROM %s ti USING %s li, %s ul WHERE li.item_id = ti.id AND
 	li.list_id = ul.list_id AND ul.user_id = $1 AND ti.id = $2 RETURNING ti.id`,
-	todoItemsTable, listsItemsTable, usersListsTable)
+		todoItemsTable, listsItemsTable, usersListsTable)
 	var id int
 	fmt.Println(query)
 	row := r.db.QueryRow(query, userId, todoItemId)
@@ -95,7 +95,7 @@ func (r *TodoItemRepository) Delete(userId int, todoItemId int) (error) {
 		}
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -127,7 +127,7 @@ func (r *TodoItemRepository) Update(userId int, todoItemId int, updateTodoItem d
 
 	query := fmt.Sprintf(`UPDATE %s ti SET %s FROM %s li, %s ul WHERE ti.id = li.item_id AND
 	ul.list_id = li.list_id AND ul.user_id = $%d AND ti.id = $%d RETURNING ti.*`, todoItemsTable, setQuery,
-	listsItemsTable, usersListsTable, argId, argId + 1)
+		listsItemsTable, usersListsTable, argId, argId+1)
 
 	var todoItem domain.TodoItem
 	err := r.db.Get(&todoItem, query, values...)

@@ -28,7 +28,7 @@ func (h *Handler) InitRoutes() *echo.Echo {
 		auth.POST("/sign-in", h.signIn)
 	}
 
-	api := router.Group("/api", h.userIdentity);
+	api := router.Group("/api", h.userIdentity)
 	{
 		lists := api.Group("/lists")
 		{

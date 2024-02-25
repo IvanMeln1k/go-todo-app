@@ -6,16 +6,16 @@ import (
 )
 
 const (
-	usersTable = "users"
-	todoListsTable = "todo_lists"
+	usersTable      = "users"
+	todoListsTable  = "todo_lists"
 	usersListsTable = "users_lists"
-	todoItemsTable = "todo_items"
+	todoItemsTable  = "todo_items"
 	listsItemsTable = "lists_items"
 )
 
 type Authorization interface {
 	CreateUser(user domain.User) (int, error)
-	GetUser(username, password string) (domain.User, error) 
+	GetUser(username, password string) (domain.User, error)
 }
 
 type TodoList interface {
@@ -43,7 +43,7 @@ type Repository struct {
 func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{
 		Authorization: NewAuthRepository(db),
-		TodoList: NewTodoListRepository(db),
-		TodoItem: NewTodoItemRepository(db),
+		TodoList:      NewTodoListRepository(db),
+		TodoItem:      NewTodoItemRepository(db),
 	}
 }

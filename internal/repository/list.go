@@ -22,12 +22,12 @@ func NewTodoListRepository(db *sqlx.DB) *TodoListRepository {
 }
 
 func (r *TodoListRepository) Create(userId int, todoList domain.TodoList) (int, error) {
-	tx, err := r.db.Begin();
+	tx, err := r.db.Begin()
 	if err != nil {
 		logrus.Error(err)
 		return 0, err
-	} 
-	
+	}
+
 	var id int
 	query := fmt.Sprintf(`INSERT INTO %s (title, description)
 	 VALUES ($1, $2) RETURNING id`, todoListsTable)
@@ -81,7 +81,7 @@ func (r *TodoListRepository) GetById(userId int, todoListId int) (domain.TodoLis
 	return todoList, nil
 }
 
-func (r *TodoListRepository) Delete(userId int, todoListId int) (error) {
+func (r *TodoListRepository) Delete(userId int, todoListId int) error {
 	query := fmt.Sprintf(`DELETE FROM %s tl USING %s ul WHERE ul.list_id = tl.id AND
 	ul.user_id = $1 AND tl.id = $2 RETURNING tl.id`, todoListsTable, usersListsTable)
 	row := r.db.QueryRow(query, userId, todoListId)
@@ -119,7 +119,7 @@ func (r *TodoListRepository) Update(userId int, todoListId int, updateTodoList d
 
 	setQuery := strings.Join(valueNames, ", ")
 	query := fmt.Sprintf(`UPDATE %s tl SET %s FROM %s ul WHERE ul.list_id = tl.id AND ul.user_id = $%d
-	AND tl.id = $%d RETURNING tl.*`, todoListsTable, setQuery, usersListsTable, argId, argId + 1)
+	AND tl.id = $%d RETURNING tl.*`, todoListsTable, setQuery, usersListsTable, argId, argId+1)
 	values = append(values, userId, todoListId)
 
 	var todoList domain.TodoList

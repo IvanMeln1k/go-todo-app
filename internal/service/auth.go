@@ -12,10 +12,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const ( 
-	salt string = "ghu835mgd823"
-	signingkey = "lgk;bfsdtrg"
-	tokenTTL = time.Hour * 12
+const (
+	salt       string = "ghu835mgd823"
+	signingkey        = "lgk;bfsdtrg"
+	tokenTTL          = time.Hour * 12
 )
 
 type AuthService struct {
@@ -27,13 +27,13 @@ func NewAuthService(repo repository.Authorization) *AuthService {
 }
 
 func (s *AuthService) CreateUser(user domain.User) (int, error) {
-	user.Password = s.hashPassword(user.Password);
-	return s.repo.CreateUser(user);
+	user.Password = s.hashPassword(user.Password)
+	return s.repo.CreateUser(user)
 }
 
 func (s *AuthService) hashPassword(password string) string {
-	hash := sha1.New();
-	hash.Write([]byte(password)) 
+	hash := sha1.New()
+	hash.Write([]byte(password))
 	return fmt.Sprintf("%x", hash.Sum([]byte(salt)))
 }
 
@@ -49,11 +49,11 @@ func (s *AuthService) GenerateToken(username, password string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &StandardClaimsWithUserId{
-		jwt.StandardClaims {
+		jwt.StandardClaims{
 			ExpiresAt: time.Now().UTC().Add(tokenTTL).Unix(),
-			IssuedAt: time.Now().UTC().Unix(),	
+			IssuedAt:  time.Now().UTC().Unix(),
 		},
-		user.Id, 
+		user.Id,
 	})
 
 	return token.SignedString([]byte(signingkey))
