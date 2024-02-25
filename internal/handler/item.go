@@ -34,7 +34,7 @@ func (h *Handler) createItem(c echo.Context) error {
 		return newErrorResponse(500, "Internal server error")
 	}
 
-	return c.JSON(201, todoItemId);
+	return c.JSON(201, todoItemId)
 }
 
 func (h *Handler) getAllItems(c echo.Context) error {
@@ -52,7 +52,7 @@ func (h *Handler) getAllItems(c echo.Context) error {
 	if err != nil {
 		if err.Error() == "not found" {
 			return newErrorResponse(404, "Not found")
-		} 
+		}
 		return newErrorResponse(500, "Internal server error")
 	}
 
@@ -88,7 +88,7 @@ func (h *Handler) getItemById(c echo.Context) error {
 func (h *Handler) deleteItem(c echo.Context) error {
 	userId, err := getUserId(c)
 	if err != nil {
-		return err;
+		return err
 	}
 
 	todoItemId, err := strconv.Atoi(c.Param("id"))
@@ -96,7 +96,7 @@ func (h *Handler) deleteItem(c echo.Context) error {
 		return newErrorResponse(400, "TodoItemId is no integer value")
 	}
 
-	err = h.services.TodoItem.Delete(userId, todoItemId);
+	err = h.services.TodoItem.Delete(userId, todoItemId)
 	if err != nil {
 		if err.Error() == "not found" {
 			return newErrorResponse(404, "Item not found")

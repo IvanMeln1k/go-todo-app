@@ -6,6 +6,6 @@ import (
 )
 
 func newErrorResponse(statusCode int, message string) error {
-	logrus.Error(message);
-	return echo.NewHTTPError(statusCode, message);
+	logrus.Error(message)
+	return echo.NewHTTPError(statusCode, message)
 }

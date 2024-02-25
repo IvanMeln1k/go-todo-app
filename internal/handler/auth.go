@@ -16,9 +16,9 @@ func (h *Handler) signUp(c echo.Context) error {
 	if err := c.Validate(user); err != nil {
 		return newErrorResponse(http.StatusBadRequest, err.Error())
 	}
-	id, err := h.services.CreateUser(*user);
+	id, err := h.services.CreateUser(*user)
 	if err != nil {
-		logrus.Errorf("%s", err);
+		logrus.Errorf("%s", err)
 		if err.Error() == "username already in use" {
 			return newErrorResponse(409, "Username already in use")
 		}
@@ -26,7 +26,7 @@ func (h *Handler) signUp(c echo.Context) error {
 	}
 	return c.JSON(200, map[string]interface{}{
 		"id": id,
-	});
+	})
 }
 
 type signInInput struct {
