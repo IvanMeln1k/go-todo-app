@@ -27,7 +27,7 @@ type TodoList interface {
 }
 
 type TodoItem interface {
-
+	Create(todoListId int, todoItem domain.TodoItem) (int, error)
 }
 
 type Repository struct {
@@ -40,5 +40,6 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{
 		Authorization: NewAuthRepository(db),
 		TodoList: NewTodoListRepository(db),
+		TodoItem: NewTodoItemRepository(db),
 	}
 }

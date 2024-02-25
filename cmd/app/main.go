@@ -17,10 +17,12 @@ func main() {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 	if err := initConfig(); err != nil {
 		logrus.Fatalf("error initializing configs: %s", err.Error())
+		return
 	}
 
 	if err := godotenv.Load(); err != nil {
 		logrus.Fatalf("error loading env variables: %s", err.Error())
+		return
 	}
 
 	db, err := database.NewPostgresDB(database.Config{
@@ -33,7 +35,8 @@ func main() {
 	})
 
 	if err != nil {
-		logrus.Fatalf("error connect to db: %s", err.Error())	
+		logrus.Fatalf("error connect to db: %s", err.Error())
+		return
 	}
 
 	repos := repository.NewRepository(db)
