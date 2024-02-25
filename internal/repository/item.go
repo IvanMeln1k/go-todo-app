@@ -79,3 +79,21 @@ func (r *TodoItemRepostirory) GetById(userId int, todoItemId int) (domain.TodoIt
 
 	return todoItem, nil
 }
+
+func (r *TodoItemRepostirory) Delete(userId int, todoItemId int) (error) {
+	query := fmt.Sprintf(`DELETE FROM %s ti USING %s li, %s ul WHERE li.item_id = ti.id AND
+	li.list_id = ul.list_id AND ul.user_id = $1 AND ti.id = $2 RETURNING ti.id`,
+	todoItemsTable, listsItemsTable, usersListsTable)
+	var id int
+	fmt.Println(query)
+	row := r.db.QueryRow(query, userId, todoItemId)
+	if err := row.Scan(&id); err != nil {
+		logrus.Error(err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("not found")
+		}
+		return err
+	}
+	
+	return nil
+}

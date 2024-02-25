@@ -85,10 +85,30 @@ func (h *Handler) getItemById(c echo.Context) error {
 	})
 }
 
-func (h *Handler) updateItem(c echo.Context) error {
-	return c.String(200, c.Path())
+func (h *Handler) deleteItem(c echo.Context) error {
+	userId, err := getUserId(c)
+	if err != nil {
+		return err;
+	}
+
+	todoItemId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return newErrorResponse(400, "TodoItemId is no integer value")
+	}
+
+	err = h.services.TodoItem.Delete(userId, todoItemId);
+	if err != nil {
+		if err.Error() == "not found" {
+			return newErrorResponse(404, "Item not found")
+		}
+		return newErrorResponse(500, "Internal server error")
+	}
+
+	return c.JSON(200, map[string]interface{}{
+		"status": "ok",
+	})
 }
 
-func (h *Handler) deleteItem(c echo.Context) error {
+func (h *Handler) updateItem(c echo.Context) error {
 	return c.String(200, c.Path())
 }
