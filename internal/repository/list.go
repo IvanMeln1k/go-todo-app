@@ -123,8 +123,7 @@ func (r *TodoListRepository) Update(userId int, todoListId int, updateTodoList d
 	values = append(values, userId, todoListId)
 
 	var todoList domain.TodoList
-	row := r.db.QueryRow(query, values...)
-	err := row.Scan(&todoList.Id, &todoList.Title, &todoList.Description)
+	err := r.db.Get(&todoList, query, values...)
 	if err != nil {
 		logrus.Error(err)
 		if errors.Is(err, sql.ErrNoRows) {

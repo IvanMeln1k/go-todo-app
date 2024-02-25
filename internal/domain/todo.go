@@ -33,6 +33,19 @@ type TodoItem struct {
 	Done bool `done:"done" db:"done"`
 }
 
+type UpdateTodoItem struct {
+	Title *string `json:"title"`
+	Description *string `json:"description"`
+	Done *bool `json:"done"`
+}
+
+func (i UpdateTodoItem) Validate() error {
+	if i.Title == nil && i.Description == nil && i.Done == nil {
+		return errors.New("update struct has no values")
+	}
+	return nil
+}
+
 type ListsItem struct {
 	Id int
 	ListId int

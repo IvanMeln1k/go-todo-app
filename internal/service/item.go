@@ -39,6 +39,10 @@ func (s *TodoItemService) GetById(userId int, todoItemId int) (domain.TodoItem, 
 	return s.repo.GetById(userId, todoItemId)
 }
 
-func(s *TodoItemService) Delete(userId int, todoItemId int) (error) {
+func (s *TodoItemService) Delete(userId int, todoItemId int) (error) {
 	return s.repo.Delete(userId, todoItemId)
+}
+
+func (s *TodoItemService) Update(userId int, todoItemId int, updateTodoItem domain.UpdateTodoItem) (domain.TodoItem, error) {
+	return s.repo.Update(userId, todoItemId, updateTodoItem)
 }
