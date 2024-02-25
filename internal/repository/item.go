@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/IvanMeln1k/go-todo-app/internal/domain"
@@ -45,4 +47,35 @@ func (r *TodoItemRepostirory) Create(todoListId int, todoItem domain.TodoItem) (
 
 	tx.Commit()
 	return todoItem.Id, nil
+}
+
+func (r *TodoItemRepostirory) GetAll(todoListId int) ([]domain.TodoItem, error) {
+	var todoItems []domain.TodoItem
+
+	query := fmt.Sprintf(`SELECT ti.* FROM %s ti INNER JOIN %s li ON li.item_id = ti.id 
+	WHERE li.list_id = $1`, todoItemsTable, listsItemsTable)
+	err := r.db.Select(&todoItems, query, todoListId)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	return todoItems, nil
+}
+
+func (r *TodoItemRepostirory) GetById(userId int, todoItemId int) (domain.TodoItem, error) {
+	var todoItem domain.TodoItem
+
+	query := fmt.Sprintf(`SELECT ti.* FROM %s ti INNER JOIN %s li ON li.item_id = ti.id INNER JOIN
+	%s ul ON ul.list_id = li.list_id WHERE ul.user_id = $1`, todoItemsTable, listsItemsTable, usersListsTable)
+	err := r.db.Get(&todoItem, query, userId)
+	if err != nil {
+		logrus.Error(err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return todoItem, errors.New("not found")
+		}
+		return todoItem, err
+	}
+
+	return todoItem, nil
 }

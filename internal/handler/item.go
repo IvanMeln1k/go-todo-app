@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/IvanMeln1k/go-todo-app/internal/domain"
@@ -39,12 +38,51 @@ func (h *Handler) createItem(c echo.Context) error {
 }
 
 func (h *Handler) getAllItems(c echo.Context) error {
-	fmt.Println("hihihi")
-	return c.String(200, c.Path())
+	userId, err := getUserId(c)
+	if err != nil {
+		return err
+	}
+
+	todoListId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return newErrorResponse(400, "TodoListId is no integer value")
+	}
+
+	todoItems, err := h.services.TodoItem.GetAll(userId, todoListId)
+	if err != nil {
+		if err.Error() == "not found" {
+			return newErrorResponse(404, "Not found")
+		} 
+		return newErrorResponse(500, "Internal server error")
+	}
+
+	return c.JSON(200, map[string]interface{}{
+		"todoItems": todoItems,
+	})
 }
 
 func (h *Handler) getItemById(c echo.Context) error {
-	return c.String(200, c.Path())
+	userId, err := getUserId(c)
+	if err != nil {
+		return err
+	}
+
+	todoItemId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return newErrorResponse(400, "TodoItemId is no integer value")
+	}
+
+	todoItem, err := h.services.TodoItem.GetById(userId, todoItemId)
+	if err != nil {
+		if err.Error() == "not found" {
+			return newErrorResponse(404, "Item not found")
+		}
+		return newErrorResponse(500, "Internal server error")
+	}
+
+	return c.JSON(200, map[string]interface{}{
+		"todoItem": todoItem,
+	})
 }
 
 func (h *Handler) updateItem(c echo.Context) error {

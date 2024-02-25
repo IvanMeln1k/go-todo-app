@@ -71,7 +71,7 @@ func (s *AuthService) ParseToken(tokenString string) (int, error) {
 	}
 
 	if claims.UserId == 0 {
-		return 0, errors.New("invalid token expired")
+		return 0, errors.New("invalid token signature")
 	}
 
 	return claims.UserId, nil

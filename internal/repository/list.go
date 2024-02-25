@@ -58,9 +58,6 @@ func (r *TodoListRepository) GetAll(userId int) ([]domain.TodoList, error) {
 	err := r.db.Select(&todoLists, query, userId)
 	if err != nil {
 		logrus.Error(err)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("not found")
-		}
 		return nil, err
 	}
 
