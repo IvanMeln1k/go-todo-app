@@ -38,7 +38,7 @@ func (h *Handler) InitRoutes() *echo.Echo {
 			lists.PUT("/:id", h.updateList)
 			lists.DELETE("/:id", h.deleteList)
 
-			items := lists.Group(":id/")
+			items := lists.Group("/:id")
 			{
 				items.POST("/", h.createItem)
 				items.GET("/", h.getAllItems)
