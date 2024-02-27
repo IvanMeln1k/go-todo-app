@@ -23,7 +23,7 @@ func main() {
 		logrus.Fatalf("error loading env variables: %s", err.Error())
 	}
 
-	db, err := database.NewPostgresDB(database.Config{
+	db, err := database.NewPostgresDB(database.PostgresConfig{
 		Host:     viper.GetString("db.host"),
 		Port:     viper.GetString("db.port"),
 		User:     viper.GetString("db.user"),
@@ -31,13 +31,19 @@ func main() {
 		DBName:   viper.GetString("db.name"),
 		SSLMode:  viper.GetString("db.sslmode"),
 	})
-
 	if err != nil {
 		logrus.Fatalf("error connect to db: %s", err.Error())
 		return
 	}
 
-	repos := repository.NewRepository(db)
+	rdb := database.NewRedisDB(database.RedisConfig{
+		Host:     "127.0.0.1",
+		Port:     "6380",
+		DB:       0,
+		Password: "redis",
+	})
+
+	repos := repository.NewRepository(db, rdb)
 	services := service.NewService(repos)
 	handlers := handler.NewHandler(services)
 
@@ -52,3 +58,23 @@ func initConfig() error {
 	viper.SetConfigName("config")
 	return viper.ReadInConfig()
 }
+
+// func main() {
+// 	rdb := database.NewRedisDB(database.RedisConfig{
+// 		Host:     "127.0.0.1",
+// 		Port:     "6380",
+// 		DB:       0,
+// 		Password: "redis",
+// 	})
+
+// 	refreshToken := "aagert5er"
+// 	ctx := context.Background()
+// 	userId := 1
+
+// 	_, err := rdb.ZAdd(ctx, fmt.Sprintf("sessionsuid%d", userId),
+// 		redis.Z{Score: 0, Member: refreshToken}).Result()
+// 	if err != nil {
+// 		logrus.Error(err)
+// 		return
+// 	}
+// }

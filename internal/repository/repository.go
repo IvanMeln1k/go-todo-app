@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"context"
+
 	"github.com/IvanMeln1k/go-todo-app/internal/domain"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -16,6 +19,8 @@ const (
 type Authorization interface {
 	CreateUser(user domain.User) (int, error)
 	GetUser(username, password string) (domain.User, error)
+	CreateRefreshToken(ctx context.Context, userId int, refreshToken string) error
+	Refresh(ctx context.Context, refreshToken string, newRefreshToken string) (int, error)
 }
 
 type TodoList interface {
@@ -40,9 +45,9 @@ type Repository struct {
 	TodoItem
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
+func NewRepository(db *sqlx.DB, rdb *redis.Client) *Repository {
 	return &Repository{
-		Authorization: NewAuthRepository(db),
+		Authorization: NewAuthRepository(db, rdb),
 		TodoList:      NewTodoListRepository(db),
 		TodoItem:      NewTodoItemRepository(db),
 	}

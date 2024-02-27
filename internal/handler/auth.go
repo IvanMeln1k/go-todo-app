@@ -42,14 +42,40 @@ func (h *Handler) signIn(c echo.Context) error {
 	if err := c.Validate(user); err != nil {
 		return newErrorResponse(400, err.Error())
 	}
-	token, err := h.services.Authorization.GenerateToken(user.Username, user.Password)
+
+	tokens, err := h.services.Authorization.SignIn(c.Request().Context(), user.Username, user.Password)
 	if err != nil {
 		if err.Error() == "user not found" {
 			return newErrorResponse(401, "Invalid username or password")
 		}
 		return newErrorResponse(500, "Internal server error")
 	}
+
+	c.SetCookie(&http.Cookie{
+		Name:     "refreshToken",
+		Value:    tokens.RefreshToken,
+		HttpOnly: true,
+	})
 	return c.JSON(200, map[string]interface{}{
-		"token": token,
+		"tokens": tokens,
+	})
+}
+
+func (h *Handler) refresh(c echo.Context) error {
+	refreshToken, err := c.Cookie("refreshToken")
+	if err != nil {
+		return newErrorResponse(401, "Unauthorized")
+	}
+	tokens, err := h.services.Authorization.Refresh(c.Request().Context(), refreshToken.Value)
+	if err != nil {
+		return newErrorResponse(401, "Unauthorized")
+	}
+	c.SetCookie(&http.Cookie{
+		Name:     "refreshToken",
+		Value:    tokens.RefreshToken,
+		HttpOnly: true,
+	})
+	return c.JSON(200, map[string]interface{}{
+		"tokens": tokens,
 	})
 }

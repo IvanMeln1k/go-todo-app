@@ -1,13 +1,21 @@
 package service
 
 import (
+	"context"
+
 	"github.com/IvanMeln1k/go-todo-app/internal/domain"
 	"github.com/IvanMeln1k/go-todo-app/internal/repository"
 )
 
+type Tokens struct {
+	AccessToken  string
+	RefreshToken string
+}
+
 type Authorization interface {
 	CreateUser(user domain.User) (int, error)
-	GenerateToken(username, password string) (string, error)
+	SignIn(ctx context.Context, username, password string) (Tokens, error)
+	Refresh(ctx context.Context, refreshToken string) (Tokens, error)
 	ParseToken(tokenString string) (int, error)
 }
 

@@ -7,7 +7,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-type Config struct {
+type PostgresConfig struct {
 	Host     string
 	Port     string
 	User     string
@@ -16,7 +16,7 @@ type Config struct {
 	SSLMode  string
 }
 
-func NewPostgresDB(cfg Config) (*sqlx.DB, error) {
+func NewPostgresDB(cfg PostgresConfig) (*sqlx.DB, error) {
 	db, err := sqlx.Connect("postgres",
 		fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", cfg.Host, cfg.Port,
 			cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode))
