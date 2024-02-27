@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/IvanMeln1k/go-todo-app/internal/domain"
+	"github.com/IvanMeln1k/go-todo-app/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
 )
 
 func (h *Handler) signUp(c echo.Context) error {
@@ -18,8 +19,7 @@ func (h *Handler) signUp(c echo.Context) error {
 	}
 	id, err := h.services.CreateUser(*user)
 	if err != nil {
-		logrus.Errorf("%s", err)
-		if err.Error() == "username already in use" {
+		if errors.Is(err, service.ErrUsernameAlreadyInUse) {
 			return newErrorResponse(409, "Username already in use")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal server error")
@@ -45,10 +45,12 @@ func (h *Handler) signIn(c echo.Context) error {
 
 	tokens, err := h.services.Authorization.SignIn(c.Request().Context(), user.Username, user.Password)
 	if err != nil {
-		if err.Error() == "user not found" {
+		if errors.Is(err, service.ErrUserNotFound) {
 			return newErrorResponse(401, "Invalid username or password")
+		} else if errors.Is(err, service.ErrInternal) {
+			return newErrorResponse(500, "Internal server error")
 		}
-		return newErrorResponse(500, "Internal server error")
+		return newErrorResponse(401, "Anauthorized")
 	}
 
 	c.SetCookie(&http.Cookie{
@@ -68,6 +70,13 @@ func (h *Handler) refresh(c echo.Context) error {
 	}
 	tokens, err := h.services.Authorization.Refresh(c.Request().Context(), refreshToken.Value)
 	if err != nil {
+		if errors.Is(err, service.ErrSessionExpired) {
+			return newErrorResponse(401, "Session is expired")
+		} else if errors.Is(err, service.ErrInvalidSession) {
+			return newErrorResponse(401, "Invalid session")
+		} else if errors.Is(err, service.ErrInternal) {
+			return newErrorResponse(500, "Internal server error")
+		}
 		return newErrorResponse(401, "Unauthorized")
 	}
 	c.SetCookie(&http.Cookie{

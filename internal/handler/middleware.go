@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"strings"
 
+	"github.com/IvanMeln1k/go-todo-app/internal/service"
 	"github.com/labstack/echo/v4"
 )
 
@@ -24,11 +26,12 @@ func (h *Handler) userIdentity(next echo.HandlerFunc) echo.HandlerFunc {
 		userId, err := h.services.Authorization.ParseToken(params[1])
 
 		if err != nil {
-			if err.Error() == "token is expired" {
+			if errors.Is(err, service.ErrTokenExpired) {
 				return newErrorResponse(401, "Token is expired")
-			} else {
-				return newErrorResponse(401, "Ivanlid token signature")
+			} else if errors.Is(err, service.ErrInvalidTokenSignature) {
+				return newErrorResponse(401, "Invalid token signature")
 			}
+			return newErrorResponse(500, "Internal server error")
 		}
 
 		c.Set("userId", userId)

@@ -19,8 +19,11 @@ const (
 type Authorization interface {
 	CreateUser(user domain.User) (int, error)
 	GetUser(username, password string) (domain.User, error)
-	CreateRefreshToken(ctx context.Context, userId int, refreshToken string) error
-	Refresh(ctx context.Context, refreshToken string, newRefreshToken string) (int, error)
+	CreateSession(ctx context.Context, session domain.Session) error
+	GetSession(ctx context.Context, refreshToken string) (domain.Session, error)
+	DeleteUserSession(ctx context.Context, userId int, refreshToken string) error
+	GetCntSessions(ctx context.Context, userId int) (int, error)
+	GetAllSessions(ctx context.Context, userId int) ([]domain.Session, error)
 }
 
 type TodoList interface {

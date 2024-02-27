@@ -18,6 +18,7 @@ const (
 	salt       string = "ghu835mgd823"
 	signingkey        = "lgk;bfsdtrg"
 	tokenTTL          = time.Hour * 12
+	sessionTTL        = 30 * time.Hour * 24
 )
 
 type AuthService struct {
@@ -28,9 +29,30 @@ func NewAuthService(repo repository.Authorization) *AuthService {
 	return &AuthService{repo: repo}
 }
 
+var (
+	ErrUsernameAlreadyInUse      = errors.New("username already in use")
+	ErrInvalidUsernameOrPassowrd = errors.New("invalid username or password")
+	ErrUserNotFound              = errors.New("user not found")
+	ErrCreateUser                = errors.New("error to create user")
+	ErrGetUser                   = errors.New("error to get user")
+	ErrInternal                  = errors.New("internal error")
+	ErrTokenExpired              = errors.New("token expired")
+	ErrInvalidTokenSignature     = errors.New("invalid token signature")
+	ErrInvalidSession            = errors.New("invalid session")
+	ErrSessionExpired            = errors.New("session expired")
+)
+
 func (s *AuthService) CreateUser(user domain.User) (int, error) {
 	user.Password = s.hashPassword(user.Password)
-	return s.repo.CreateUser(user)
+	userId, err := s.repo.CreateUser(user)
+	if err != nil {
+		if errors.Is(err, repository.ErrCreateUser) {
+			return 0, ErrUsernameAlreadyInUse
+		} else {
+			return 0, ErrCreateUser
+		}
+	}
+	return userId, nil
 }
 
 func (s *AuthService) hashPassword(password string) string {
@@ -72,24 +94,91 @@ func (s *AuthService) generateRefreshToken() (string, error) {
 func (s *AuthService) SignIn(ctx context.Context, username, password string) (Tokens, error) {
 	user, err := s.repo.GetUser(username, s.hashPassword(password))
 	if err != nil {
-		return Tokens{}, err
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return Tokens{}, ErrInvalidUsernameOrPassowrd
+		}
+		return Tokens{}, ErrInternal
 	}
 
 	accessToken, err := s.generateJWT(user.Id)
 	if err != nil {
-		logrus.Error(err)
-		return Tokens{}, err
+		return Tokens{}, ErrInternal
 	}
 
 	refreshToken, err := s.generateRefreshToken()
 	if err != nil {
-		logrus.Error(err)
-		return Tokens{}, err
+		return Tokens{}, ErrInternal
 	}
 
-	err = s.repo.CreateRefreshToken(ctx, user.Id, refreshToken)
+	cntSessions, err := s.repo.GetCntSessions(ctx, user.Id)
 	if err != nil {
-		logrus.Error(err)
+		return Tokens{}, ErrInternal
+	}
+
+	if cntSessions >= 5 {
+		sessions, err := s.repo.GetAllSessions(ctx, user.Id)
+		if err != nil {
+			return Tokens{}, ErrInternal
+		}
+		domain.SortSessionsByTime(&sessions)
+		cntSessions = len(sessions)
+		for i := 0; i < len(sessions); i++ {
+			if cntSessions < 5 && sessions[i].ExpiresAt.Unix() > time.Now().Unix() {
+				break
+			}
+			err = s.repo.DeleteUserSession(ctx, user.Id, sessions[i].Id)
+			if err != nil {
+				return Tokens{}, ErrInternal
+			}
+			cntSessions--
+		}
+	}
+
+	err = s.repo.CreateSession(ctx, domain.Session{
+		UserId:    user.Id,
+		Id:        refreshToken,
+		ExpiresAt: time.Now().Add(sessionTTL),
+	})
+	if err != nil {
+		return Tokens{}, ErrInternal
+	}
+	return Tokens{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
+}
+
+func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (Tokens, error) {
+	session, err := s.repo.GetSession(ctx, refreshToken)
+	if err != nil {
+		if errors.Is(err, repository.ErrSessionExpired) {
+			return Tokens{}, ErrSessionExpired
+		}
+		return Tokens{}, ErrInternal
+	}
+
+	accessToken, err := s.generateJWT(session.UserId)
+	if err != nil {
+		return Tokens{}, ErrInternal
+	}
+
+	err = s.repo.DeleteUserSession(ctx, session.UserId, refreshToken)
+	if err != nil {
+		return Tokens{}, ErrInternal
+	}
+
+	refreshToken, err = s.generateRefreshToken()
+	if err != nil {
+		return Tokens{}, ErrInternal
+	}
+
+	err = s.repo.CreateSession(ctx, domain.Session{
+		UserId:    session.UserId,
+		Id:        refreshToken,
+		ExpiresAt: time.Now().Add(sessionTTL),
+	})
+	if err != nil {
+		return Tokens{}, ErrInternal
 	}
 
 	return Tokens{
@@ -98,48 +187,22 @@ func (s *AuthService) SignIn(ctx context.Context, username, password string) (To
 	}, nil
 }
 
-func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (Tokens, error) {
-	newRefreshToken, err := s.generateRefreshToken()
-	if err != nil {
-		logrus.Error(err)
-		return Tokens{}, err
-	}
-
-	userId, err := s.repo.Refresh(ctx, refreshToken, newRefreshToken)
-	if err != nil {
-		return Tokens{}, err
-	}
-
-	accessToken, err := s.generateJWT(userId)
-	if err != nil {
-		logrus.Error(err)
-		return Tokens{}, err
-	}
-
-	return Tokens{
-		AccessToken:  accessToken,
-		RefreshToken: newRefreshToken,
-	}, nil
-}
-
 func (s *AuthService) ParseToken(tokenString string) (int, error) {
-	var claims StandardClaimsWithUserId
-	_, err := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &StandardClaimsWithUserId{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(signingkey), nil
 	})
 
-	if claims.ExpiresAt < time.Now().Unix() {
-		logrus.Error("token is expired")
-		return 0, errors.New("token is expired")
+	claims, ok := token.Claims.(*StandardClaimsWithUserId)
+	if !ok {
+		return 0, ErrInvalidTokenSignature
 	}
 
 	if err != nil {
 		logrus.Error(err)
-		return 0, err
-	}
-
-	if claims.UserId == 0 {
-		return 0, errors.New("invalid token signature")
+		if claims.ExpiresAt != 0 && claims.ExpiresAt < time.Now().Unix() {
+			return 0, ErrTokenExpired
+		}
+		return 0, ErrInvalidTokenSignature
 	}
 
 	return claims.UserId, nil

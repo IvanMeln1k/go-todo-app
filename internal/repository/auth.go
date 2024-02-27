@@ -27,6 +27,15 @@ func NewAuthRepository(db *sqlx.DB, rdb *redis.Client) *AuthRepository {
 	}
 }
 
+var (
+	ErrUsernameAlreadyInUse = errors.New("username already in use")
+	ErrCreateUser           = errors.New("error to write data")
+	ErrGetUser              = errors.New("error to get data")
+	ErrUserNotFound         = errors.New("user not found")
+	ErrSessionExpired       = errors.New("session expired")
+	ErrInternal             = errors.New("internal error")
+)
+
 func (r *AuthRepository) CreateUser(user domain.User) (int, error) {
 	var id int
 
@@ -38,10 +47,10 @@ func (r *AuthRepository) CreateUser(user domain.User) (int, error) {
 		logrus.Error(err)
 		if pqErr, ok := err.(*pq.Error); ok {
 			if pqErr.Code == "23505" {
-				return 0, errors.New("username already in use")
+				return 0, ErrUsernameAlreadyInUse
 			}
 		}
-		return 0, errors.New("internal server error")
+		return 0, ErrCreateUser
 	}
 
 	return id, nil
@@ -56,74 +65,171 @@ func (r *AuthRepository) GetUser(username, password string) (domain.User, error)
 	if err != nil {
 		logrus.Error(err)
 		if err == sql.ErrNoRows {
-			return user, errors.New("user not found")
+			return user, ErrUserNotFound
 		}
-		return user, err
+		return user, ErrGetUser
 	}
 	return user, nil
 }
 
-func (r *AuthRepository) CreateRefreshToken(ctx context.Context, userId int, refreshToken string) error {
-	_, err := r.rdb.ZAdd(ctx, fmt.Sprintf("sessionsuid%d", userId),
-		redis.Z{Score: 0, Member: refreshToken}).Result()
-	if err != nil {
-		logrus.Error(err)
-		return err
-	}
+func (r *AuthRepository) getSessionKey(refreshToken string) string {
+	return fmt.Sprintf("sessions:%s", refreshToken)
+}
 
-	ssid := fmt.Sprintf("sessions:%s", refreshToken)
-	_, err = r.rdb.HSet(ctx, ssid, map[string]interface{}{
-		"userId": userId,
+func (r *AuthRepository) getUserSessionsKey(userId int) string {
+	return fmt.Sprintf("userSessions:%d", userId)
+}
+
+func (r *AuthRepository) CreateSession(ctx context.Context, session domain.Session) error {
+	pipe := r.rdb.Pipeline()
+
+	sessionKey := r.getSessionKey(session.Id)
+	userSessionKey := r.getUserSessionsKey(session.UserId)
+
+	_, err := pipe.ZAdd(ctx, userSessionKey, redis.Z{
+		Score:  0,
+		Member: session.Id,
 	}).Result()
 	if err != nil {
+		pipe.Discard()
 		logrus.Error(err)
-		return err
+		return ErrInternal
 	}
-	_, err = r.rdb.Expire(ctx, ssid, time.Hour*24*30).Result()
+
+	_, err = pipe.HSet(ctx, sessionKey, map[string]interface{}{
+		"userId": session.UserId,
+	}).Result()
+	if err != nil {
+		pipe.Discard()
+		logrus.Error(err)
+		return ErrInternal
+	}
+
+	_, err = pipe.ExpireAt(ctx, sessionKey, session.ExpiresAt).Result()
+	if err != nil {
+		pipe.Discard()
+		logrus.Error(err)
+		return ErrInternal
+	}
+
+	_, err = pipe.Exec(ctx)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return ErrInternal
 	}
 
 	return nil
 }
 
-func (r *AuthRepository) Refresh(ctx context.Context, refreshToken string, newRefreshToken string) (int, error) {
-	ssid := fmt.Sprintf("sessions:%s", refreshToken)
-	vals, err := r.rdb.HGetAll(ctx, ssid).Result()
-	if err != nil {
-		logrus.Error(err)
-		return 0, err
-	}
-
-	_, err = r.rdb.Del(ctx, ssid).Result()
-	if err != nil {
-		logrus.Error(err)
-		return 0, err
-	}
-
-	userIdStr, ok := vals["userId"]
+func (r *AuthRepository) bindSession(dict map[string]string) (domain.Session, error) {
+	userIdStr, ok := dict["userId"]
 	if !ok {
-		logrus.Error("Session hasn't userId")
-		return 0, errors.New("sessions hasn't userId")
+		return domain.Session{}, errors.New("bind error")
 	}
 	userId, err := strconv.Atoi(userIdStr)
 	if err != nil {
-		logrus.Error("UserId isn't integer value")
-		return 0, errors.New("userId isn't integer value")
+		return domain.Session{}, errors.New("bind error")
+	}
+	return domain.Session{
+		UserId: userId,
+	}, nil
+}
+
+func (r *AuthRepository) GetSession(ctx context.Context, refreshToken string) (domain.Session, error) {
+	sessionKey := r.getSessionKey(refreshToken)
+	rez, err := r.rdb.HGetAll(ctx, sessionKey).Result()
+	if err != nil {
+		return domain.Session{}, nil
 	}
 
-	ssuid := fmt.Sprintf("sessionsuid%d", userId)
-	_, err = r.rdb.ZRem(ctx, ssuid, refreshToken).Result()
+	expireDuration, err := r.rdb.TTL(ctx, sessionKey).Result()
+	if err != nil {
+		return domain.Session{}, nil
+	}
+	expiresAt := time.Now().Add(expireDuration)
+	if expiresAt.Unix() <= 0 {
+		return domain.Session{}, ErrSessionExpired
+	}
+
+	session, err := r.bindSession(rez)
+	if err != nil {
+		r.deleteSession(ctx, refreshToken)
+		return domain.Session{}, ErrSessionExpired
+	}
+	session.ExpiresAt = expiresAt
+	session.Id = refreshToken
+
+	return session, nil
+}
+
+func (r *AuthRepository) deleteSession(ctx context.Context, refreshToken string) error {
+	_, err := r.rdb.Del(ctx, r.getSessionKey(refreshToken)).Result()
+	return err
+}
+
+func (r *AuthRepository) DeleteUserSession(ctx context.Context, userId int, refreshToken string) error {
+	pipe := r.rdb.Pipeline()
+
+	sessionKey := r.getSessionKey(refreshToken)
+	userSessionKey := r.getUserSessionsKey(userId)
+
+	_, err := pipe.Del(ctx, sessionKey).Result()
+	if err != nil {
+		pipe.Discard()
+		logrus.Error(err)
+		return ErrInternal
+	}
+
+	_, err = pipe.ZRem(ctx, userSessionKey, refreshToken).Result()
+	if err != nil {
+		pipe.Discard()
+		logrus.Error(err)
+		return ErrInternal
+	}
+
+	_, err = pipe.Exec(ctx)
 	if err != nil {
 		logrus.Error(err)
-		return 0, err
+		return ErrInternal
 	}
 
-	err = r.CreateRefreshToken(ctx, userId, newRefreshToken)
+	return nil
+}
+
+func (r *AuthRepository) GetCntSessions(ctx context.Context, userId int) (int, error) {
+	cnt, err := r.rdb.ZCard(ctx, r.getUserSessionsKey(userId)).Result()
 	if err != nil {
-		return 0, err
+		return 0, ErrInternal
+	}
+	return int(cnt), nil
+}
+
+func (r *AuthRepository) GetAllSessions(ctx context.Context, userId int) ([]domain.Session, error) {
+	cnt, err := r.GetCntSessions(ctx, userId)
+	if err != nil {
+		logrus.Error(err)
+		return nil, ErrInternal
 	}
 
-	return userId, nil
+	refreshTokens, err := r.rdb.ZRange(ctx, r.getUserSessionsKey(userId), 0, int64(cnt)).Result()
+	if err != nil {
+		logrus.Error(err)
+		return nil, ErrInternal
+	}
+
+	var sessions []domain.Session
+
+	for i := 0; i < len(refreshTokens); i++ {
+		session, err := r.GetSession(ctx, refreshTokens[i])
+		if err != nil {
+			if errors.Is(err, ErrSessionExpired) {
+				continue
+			}
+			logrus.Error(err)
+			return nil, ErrInternal
+		}
+		sessions = append(sessions, session)
+	}
+
+	return sessions, nil
 }
