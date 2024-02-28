@@ -16,6 +16,8 @@ type Authorization interface {
 	CreateUser(user domain.User) (int, error)
 	SignIn(ctx context.Context, username, password string) (Tokens, error)
 	Refresh(ctx context.Context, refreshToken string) (Tokens, error)
+	Logout(ctx context.Context, refreshToken string) error
+	LogoutAll(ctx context.Context, refreshToken string) error
 	ParseToken(tokenString string) (int, error)
 }
 

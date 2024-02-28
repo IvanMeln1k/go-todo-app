@@ -70,8 +70,8 @@ func (h *Handler) refresh(c echo.Context) error {
 	}
 	tokens, err := h.services.Authorization.Refresh(c.Request().Context(), refreshToken.Value)
 	if err != nil {
-		if errors.Is(err, service.ErrSessionExpired) {
-			return newErrorResponse(401, "Session is expired")
+		if errors.Is(err, service.ErrSessionExpiredOrInvalid) {
+			return newErrorResponse(401, "Unauthorized")
 		} else if errors.Is(err, service.ErrInvalidSession) {
 			return newErrorResponse(401, "Invalid session")
 		} else if errors.Is(err, service.ErrInternal) {
@@ -86,5 +86,39 @@ func (h *Handler) refresh(c echo.Context) error {
 	})
 	return c.JSON(200, map[string]interface{}{
 		"tokens": tokens,
+	})
+}
+
+func (h *Handler) logout(c echo.Context) error {
+	refreshToken, err := c.Cookie("refreshToken")
+	if err != nil {
+		return newErrorResponse(401, "Unauthorized")
+	}
+	err = h.services.Authorization.Logout(c.Request().Context(), refreshToken.Value)
+	if err != nil {
+		if errors.Is(err, service.ErrSessionExpiredOrInvalid) {
+			return newErrorResponse(401, "Unauthorized")
+		}
+		return newErrorResponse(500, "Internal server error")
+	}
+	return c.JSON(200, map[string]interface{}{
+		"status": "ok",
+	})
+}
+
+func (h *Handler) logoutAll(c echo.Context) error {
+	refreshToken, err := c.Cookie("refreshToken")
+	if err != nil {
+		return newErrorResponse(401, "Unauthorized")
+	}
+	err = h.services.LogoutAll(c.Request().Context(), refreshToken.Value)
+	if err != nil {
+		if errors.Is(err, service.ErrSessionExpiredOrInvalid) {
+			return newErrorResponse(401, "Unauthorized")
+		}
+		return newErrorResponse(500, "Internal server error")
+	}
+	return c.JSON(200, map[string]interface{}{
+		"status": "ok",
 	})
 }

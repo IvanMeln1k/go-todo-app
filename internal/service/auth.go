@@ -39,7 +39,7 @@ var (
 	ErrTokenExpired              = errors.New("token expired")
 	ErrInvalidTokenSignature     = errors.New("invalid token signature")
 	ErrInvalidSession            = errors.New("invalid session")
-	ErrSessionExpired            = errors.New("session expired")
+	ErrSessionExpiredOrInvalid   = errors.New("session expired or invalid")
 )
 
 func (s *AuthService) CreateUser(user domain.User) (int, error) {
@@ -151,8 +151,8 @@ func (s *AuthService) SignIn(ctx context.Context, username, password string) (To
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (Tokens, error) {
 	session, err := s.repo.GetSession(ctx, refreshToken)
 	if err != nil {
-		if errors.Is(err, repository.ErrSessionExpired) {
-			return Tokens{}, ErrSessionExpired
+		if errors.Is(err, repository.ErrSessionExpiredOrInvalid) {
+			return Tokens{}, ErrSessionExpiredOrInvalid
 		}
 		return Tokens{}, ErrInternal
 	}
@@ -185,6 +185,36 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (Tokens,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+	session, err := s.repo.GetSession(ctx, refreshToken)
+	if err != nil {
+		if errors.Is(err, repository.ErrSessionExpiredOrInvalid) {
+			return ErrSessionExpiredOrInvalid
+		}
+		return ErrInternal
+	}
+	err = s.repo.DeleteUserSession(ctx, session.UserId, refreshToken)
+	if err != nil {
+		return ErrInternal
+	}
+	return nil
+}
+
+func (s *AuthService) LogoutAll(ctx context.Context, refreshToken string) error {
+	session, err := s.repo.GetSession(ctx, refreshToken)
+	if err != nil {
+		if errors.Is(err, repository.ErrSessionExpiredOrInvalid) {
+			return ErrSessionExpiredOrInvalid
+		}
+		return ErrInternal
+	}
+	err = s.repo.DeleteAllUserSessions(ctx, session.UserId)
+	if err != nil {
+		return ErrInternal
+	}
+	return nil
 }
 
 func (s *AuthService) ParseToken(tokenString string) (int, error) {

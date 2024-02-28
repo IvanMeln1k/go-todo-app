@@ -28,12 +28,12 @@ func NewAuthRepository(db *sqlx.DB, rdb *redis.Client) *AuthRepository {
 }
 
 var (
-	ErrUsernameAlreadyInUse = errors.New("username already in use")
-	ErrCreateUser           = errors.New("error to write data")
-	ErrGetUser              = errors.New("error to get data")
-	ErrUserNotFound         = errors.New("user not found")
-	ErrSessionExpired       = errors.New("session expired")
-	ErrInternal             = errors.New("internal error")
+	ErrUsernameAlreadyInUse    = errors.New("username already in use")
+	ErrCreateUser              = errors.New("error to write data")
+	ErrGetUser                 = errors.New("error to get data")
+	ErrUserNotFound            = errors.New("user not found")
+	ErrSessionExpiredOrInvalid = errors.New("session expired or invalid")
+	ErrInternal                = errors.New("internal error")
 )
 
 func (r *AuthRepository) CreateUser(user domain.User) (int, error) {
@@ -148,13 +148,13 @@ func (r *AuthRepository) GetSession(ctx context.Context, refreshToken string) (d
 	}
 	expiresAt := time.Now().Add(expireDuration)
 	if expiresAt.Unix() <= 0 {
-		return domain.Session{}, ErrSessionExpired
+		return domain.Session{}, ErrSessionExpiredOrInvalid
 	}
 
 	session, err := r.bindSession(rez)
 	if err != nil {
 		r.deleteSession(ctx, refreshToken)
-		return domain.Session{}, ErrSessionExpired
+		return domain.Session{}, ErrSessionExpiredOrInvalid
 	}
 	session.ExpiresAt = expiresAt
 	session.Id = refreshToken
@@ -196,6 +196,48 @@ func (r *AuthRepository) DeleteUserSession(ctx context.Context, userId int, refr
 	return nil
 }
 
+func (r *AuthRepository) DeleteAllUserSessions(ctx context.Context, userId int) error {
+	pipe := r.rdb.Pipeline()
+
+	userSessionKey := r.getUserSessionsKey(userId)
+
+	sessions, err := r.GetAllSessions(ctx, userId)
+	if err != nil {
+		pipe.Discard()
+		logrus.Error(err)
+		return ErrInternal
+	}
+	var tokens []string
+	for i := 0; i < len(sessions); i++ {
+		tokens = append(tokens, sessions[i].Id)
+	}
+	var sessionKeys []string
+	for i := 0; i < len(tokens); i++ {
+		sessionKeys = append(sessionKeys, r.getSessionKey(tokens[i]))
+	}
+
+	_, err = pipe.ZRem(ctx, userSessionKey, tokens).Result()
+	if err != nil {
+		pipe.Discard()
+		logrus.Error(err)
+		return ErrInternal
+	}
+	_, err = pipe.Del(ctx, sessionKeys...).Result()
+	if err != nil {
+		pipe.Discard()
+		logrus.Error(err)
+		return ErrInternal
+	}
+
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+		logrus.Error(err)
+		return ErrInternal
+	}
+
+	return nil
+}
+
 func (r *AuthRepository) GetCntSessions(ctx context.Context, userId int) (int, error) {
 	cnt, err := r.rdb.ZCard(ctx, r.getUserSessionsKey(userId)).Result()
 	if err != nil {
@@ -222,7 +264,8 @@ func (r *AuthRepository) GetAllSessions(ctx context.Context, userId int) ([]doma
 	for i := 0; i < len(refreshTokens); i++ {
 		session, err := r.GetSession(ctx, refreshTokens[i])
 		if err != nil {
-			if errors.Is(err, ErrSessionExpired) {
+			if errors.Is(err, ErrSessionExpiredOrInvalid) {
+				r.rdb.ZRem(ctx, r.getUserSessionsKey(userId), refreshTokens[i])
 				continue
 			}
 			logrus.Error(err)

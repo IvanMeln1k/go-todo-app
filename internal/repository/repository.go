@@ -22,6 +22,7 @@ type Authorization interface {
 	CreateSession(ctx context.Context, session domain.Session) error
 	GetSession(ctx context.Context, refreshToken string) (domain.Session, error)
 	DeleteUserSession(ctx context.Context, userId int, refreshToken string) error
+	DeleteAllUserSessions(ctx context.Context, userId int) error
 	GetCntSessions(ctx context.Context, userId int) (int, error)
 	GetAllSessions(ctx context.Context, userId int) ([]domain.Session, error)
 }

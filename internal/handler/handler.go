@@ -27,6 +27,8 @@ func (h *Handler) InitRoutes() *echo.Echo {
 		auth.POST("/sign-up", h.signUp)
 		auth.POST("/sign-in", h.signIn)
 		auth.POST("/refresh", h.refresh)
+		auth.DELETE("/logout", h.logout)
+		auth.DELETE("/logout-all", h.logoutAll)
 	}
 
 	api := router.Group("/api", h.userIdentity)
