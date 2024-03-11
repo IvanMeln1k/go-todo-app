@@ -15,7 +15,7 @@ func (h *Handler) signUp(c echo.Context) error {
 		return newErrorResponse(http.StatusBadRequest, err.Error())
 	}
 	if err := c.Validate(user); err != nil {
-		return newErrorResponse(http.StatusBadRequest, err.Error())
+		return newErrorResponse(http.StatusBadRequest, "invalid body")
 	}
 	id, err := h.services.CreateUser(*user)
 	if err != nil {

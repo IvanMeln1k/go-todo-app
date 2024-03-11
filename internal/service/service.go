@@ -12,6 +12,8 @@ type Tokens struct {
 	RefreshToken string
 }
 
+//go:generate mockgen -source=service.go -destination=mocks/mock.go
+
 type Authorization interface {
 	CreateUser(user domain.User) (int, error)
 	SignIn(ctx context.Context, username, password string) (Tokens, error)

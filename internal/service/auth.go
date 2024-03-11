@@ -46,7 +46,7 @@ func (s *AuthService) CreateUser(user domain.User) (int, error) {
 	user.Password = s.hashPassword(user.Password)
 	userId, err := s.repo.CreateUser(user)
 	if err != nil {
-		if errors.Is(err, repository.ErrCreateUser) {
+		if errors.Is(err, repository.ErrUsernameAlreadyInUse) {
 			return 0, ErrUsernameAlreadyInUse
 		} else {
 			return 0, ErrCreateUser
